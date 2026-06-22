@@ -1,4 +1,5 @@
 import re
+from ast import literal_eval
 from contextlib import suppress
 from PIL import Image
 from hashlib import md5
@@ -41,31 +42,29 @@ async def create_thumb(msg, _id=""):
     await makedirs(path, exist_ok=True)
     photo_dir = await msg.download()
     output = ospath.join(path, f"{_id}.jpg")
-    await sync_to_async(Image.open(photo_dir).convert("RGB").save, output, "JPEG")
+    await sync_to_async(Image.open(photo_dir).convert("RGB").save, output, "JPEG", quality=95)
     await remove(photo_dir)
     return output
 
 
 async def download_image_thumb(url):
-    """Download an image from a URL and save it as a JPEG thumbnail.
-
-    Validates that the URL points to an image via Content-Type header check.
-    Returns the path to the saved thumbnail, or empty string on failure.
-    """
     from httpx import AsyncClient
 
-    # Content types that are definitely NOT images
     NON_IMAGE_TYPES = (
-        "text/", "application/json", "application/xml",
-        "application/javascript", "video/", "audio/",
+        "text/",
+        "application/json",
+        "application/xml",
+        "application/javascript",
+        "video/",
+        "audio/",
     )
     try:
-        async with AsyncClient(verify=False, follow_redirects=True, timeout=30) as client:
-            # HEAD request to check content type and size
+        async with AsyncClient(
+            follow_redirects=True, timeout=30
+        ) as client:
             try:
                 head_resp = await client.head(url)
                 content_type = head_resp.headers.get("content-type", "")
-                content_length = head_resp.headers.get("content-length", "")
                 if content_type and any(
                     content_type.startswith(t) for t in NON_IMAGE_TYPES
                 ):
@@ -73,16 +72,13 @@ async def download_image_thumb(url):
                     return ""
 
             except Exception:
-                pass  # HEAD failed, will check during GET
+                pass 
 
-            # Download the image
             resp = await client.get(url)
             if resp.status_code != 200:
                 LOGGER.error(f"Failed to download thumb URL: HTTP {resp.status_code}")
                 return ""
 
-            # Only reject known non-image types; unknown types are allowed
-            # PIL will validate the actual image data below
             content_type = resp.headers.get("content-type", "")
             if content_type and any(
                 content_type.startswith(t) for t in NON_IMAGE_TYPES
@@ -92,16 +88,17 @@ async def download_image_thumb(url):
 
             data = resp.content
 
-            # Save and convert to JPEG
             path = f"{DOWNLOAD_DIR}thumbnails"
             await makedirs(path, exist_ok=True)
             tmp_path = ospath.join(path, f"{time()}_tmp")
             with open(tmp_path, "wb") as f:
                 f.write(data)
             output = ospath.join(path, f"{time()}.jpg")
+
             def _process_thumb(src, dst):
                 with Image.open(src) as im:
                     im.convert("RGB").save(dst, "JPEG")
+
             try:
                 await sync_to_async(_process_thumb, tmp_path, output)
             except Exception as e:
@@ -136,7 +133,10 @@ async def get_media_info(path, extra_info=False):
         LOGGER.error(f"Get Media Info: {e}. Mostly File not found! - File: {path}")
         return (0, "", "", "") if extra_info else (0, None, None)
     if result[0] and result[2] == 0:
-        ffresult = eval(result[0])
+        ffresult = literal_eval(result[0])
+        if not isinstance(ffresult, dict):
+            LOGGER.error(f"get_media_info: unexpected ffprobe payload: {result}")
+            return (0, "", "", "") if extra_info else (0, None, None)
         fields = ffresult.get("format")
         if fields is None:
             LOGGER.error(f"get_media_info: {result}")
@@ -208,7 +208,7 @@ async def get_document_type(path):
             is_video = True
         return is_video, is_audio, is_image
     if result[0] and result[2] == 0:
-        fields = eval(result[0]).get("streams")
+        fields = literal_eval(result[0]).get("streams")
         if fields is None:
             LOGGER.error(f"get_document_type: {result}")
             return is_video, is_audio, is_image
@@ -338,13 +338,13 @@ async def get_audio_thumbnail(audio_file):
     try:
         _, err, code = await wait_for(cmd_exec(cmd), timeout=60)
         if code != 0 or not await aiopath.exists(output):
-            LOGGER.error(
-                f"Error while extracting thumbnail from audio. Name: {audio_file} stderr: {err}"
+            LOGGER.warning(
+                f"Could not extract thumbnail from audio. Name: {audio_file} stderr: {err}"
             )
             return None
     except Exception:
-        LOGGER.error(
-            f"Error while extracting thumbnail from audio. Name: {audio_file}. Error: Timeout some issues with ffmpeg with specific arch!"
+        LOGGER.warning(
+            f"Could not extract thumbnail from audio. Name: {audio_file}. Timeout or ffmpeg issue."
         )
         return None
     return output
@@ -372,7 +372,7 @@ async def get_video_thumbnail(video_file, duration):
         "-i",
         video_file,
         "-vf",
-        "thumbnail",
+        "thumbnail,format=yuv420p",
         "-q:v",
         "1",
         "-frames:v",
@@ -425,7 +425,7 @@ async def get_multiple_frames_thumbnail(video_file, layout, keep_screenshots):
         "-i",
         f"{escape(dirpath)}/*.png",
         "-vf",
-        f"tile={layout}, thumbnail",
+        f"tile={layout},thumbnail,format=yuv420p",
         "-q:v",
         "1",
         "-frames:v",

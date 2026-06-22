@@ -20,19 +20,22 @@ STATUS_UPDATE_INTERVAL = 15
 FILELION_API = ""
 STREAMWISH_API = ""
 EXCLUDED_EXTENSIONS = ""
-INCOMPLETE_TASK_NOTIFIER = False
+INC_TASK_NOTIFY = False
 YT_DLP_OPTIONS = ""
 USE_SERVICE_ACCOUNTS = False
 NAME_SWAP = ""
 FFMPEG_CMDS = {}
 UPLOAD_PATHS = {}
+WEB_ACCESS_PASSWORD=""  # Secret for deriving proxy passwords. Logs derived passwords at startup.
 
 # Hyper Tg Downloader
 HELPER_TOKENS = ""
+USE_HYPER = True
 
 # MegaAPI v4.30
 MEGA_EMAIL = ""
 MEGA_PASSWORD = ""
+DISABLE_MEGA = False
 
 # Disable Options
 DISABLE_TORRENTS = False
@@ -41,6 +44,11 @@ DISABLE_BULK = False
 DISABLE_MULTI = False
 DISABLE_SEED = False
 DISABLE_FF_MODE = False
+DISABLE_JD = False
+DISABLE_NZB = False
+DISABLE_RSS = False
+DISABLE_SEARCH = False
+DISABLE_YTDLP = False
 
 # Telegraph
 AUTHOR_NAME = "WZML-X"
@@ -61,6 +69,18 @@ LEECH_LIMIT = 0
 EXTRACT_LIMIT = 0
 ARCHIVE_LIMIT = 0
 STORAGE_LIMIT = 0
+
+# CPU limit for background services (SABnzbd, JDownloader). Default: 20
+CPU_LIMIT = 20
+
+# Throttle services during heavy ops (FFmpeg). auto=low-end only, always, never
+THROTTLE_SERVICES = "auto"
+
+# Image Search
+USE_IMAGES = False
+IMG_SEARCH = ""
+IMG_PAGE = 1
+IMG_SOURCES = ["wallpaperflare"]
 
 # Insta video downloader api
 INSTADL_API = ""
@@ -152,15 +172,12 @@ USENET_SERVERS = [
 # Update
 UPSTREAM_REPO = ""
 UPSTREAM_BRANCH = "master"
-UPDATE_PKGS = True
-
 # Leech
 LEECH_SPLIT_SIZE = 0
 AS_DOCUMENT = False
 EQUAL_SPLITS = False
 MEDIA_GROUP = False
-USER_TRANSMISSION = True
-HYBRID_LEECH = True
+TRANSMISSION_MODE = "both"
 LEECH_PREFIX = ""
 LEECH_SUFFIX = ""
 LEECH_FONT = ""
@@ -175,7 +192,6 @@ MIRROR_LOG_ID = ""
 # qBittorrent/Aria2c
 TORRENT_TIMEOUT = 0
 BASE_URL = ""
-BASE_URL_PORT = 0
 WEB_PINCODE = True
 
 # Queueing system

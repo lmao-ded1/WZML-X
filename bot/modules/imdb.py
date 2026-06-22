@@ -1,7 +1,7 @@
 from contextlib import suppress
+from pyrogram.enums import ButtonStyle
 from re import IGNORECASE, findall, search
 
-import cloudscraper
 from imdbinfo import search_title, get_movie
 from pycountry import countries as conn
 from pyrogram.errors import MediaEmpty, PhotoInvalidDimensions, WebpageMediaEmpty
@@ -68,15 +68,15 @@ async def imdb_search(_, message):
         else:
             movies = get_poster(title, bulk=True)
             if not movies:
-                return edit_message(
-                    "<i>No Results Found</i>, Try Again or Use <b>Title ID</b>", k
+                return await edit_message(
+                    k, "<i>No Results Found</i>, Try Again or Use <b>Title ID</b>"
                 )
             for movie in movies:
                 buttons.data_button(
                     f"🎬 {movie.title} ({getattr(movie , 'year' , 'N/A')})",
                     f"imdb {user_id} movie {movie.id}",
                 )
-        buttons.data_button("🚫 Close 🚫", f"imdb {user_id} close")
+        buttons.data_button("🚫 Close 🚫", f"imdb {user_id} close", style=ButtonStyle.DANGER)
         await edit_message(
             k, "<b><i>Search Results found on IMDb.com</i></b>", buttons.build_menu(1)
         )
@@ -192,7 +192,7 @@ def get_poster(query, bulk=False, id=False, file=None):
             ]
         )
         or "N/A",
-        "release_date": getattr(movie, "release_date", "N/A") or "N/A",
+        "release_date": getattr(movie, "release_date", "N/A") or date or "N/A",
         "year": str(getattr(movie, "year", "N/A") or "N/A"),
         "genres": list_to_hash(getattr(movie, "genres", []) or [], emoji=True) or "N/A",
         "poster": getattr(
@@ -271,11 +271,11 @@ async def imdb_callback(_, query):
         buttons = ButtonMaker()
         if imdb["trailer"]:
             if isinstance(imdb["trailer"], list):
-                buttons.url_button("▶️ IMDb Trailer ", imdb["trailer"][-1])
+                buttons.url_button("▶️ IMDb Trailer ", imdb["trailer"][-1], style=ButtonStyle.PRIMARY)
                 imdb["trailer"] = list_to_str(imdb["trailer"])
             else:
-                buttons.url_button("▶️ IMDb Trailer ", imdb["trailer"])
-        buttons.data_button("🚫 Close 🚫", f"imdb {user_id} close")
+                buttons.url_button("▶️ IMDb Trailer ", imdb["trailer"], style=ButtonStyle.PRIMARY)
+        buttons.data_button("🚫 Close 🚫", f"imdb {user_id} close", style=ButtonStyle.DANGER)
         buttons = buttons.build_menu(1)
         template = ""
         # if int(data[1]) in user_data and user_data[int(data[1])].get('imdb_temp'):

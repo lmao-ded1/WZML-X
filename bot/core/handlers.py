@@ -43,6 +43,28 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            add_blacklist,
+            filters=command(BotCommands.BlackListCommand, case_sensitive=True)
+            & CustomFilters.sudo,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            remove_blacklist,
+            filters=command(BotCommands.RmBlackListCommand, case_sensitive=True)
+            & CustomFilters.sudo,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            black_listed,
+            filters=regex(r"^/")
+            & CustomFilters.authorized
+            & CustomFilters.blacklisted,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             send_bot_settings,
             filters=command(BotCommands.BotSetCommand, case_sensitive=True)
             & CustomFilters.sudo,
@@ -111,7 +133,7 @@ def add_handlers():
     TgClient.bot.add_handler(
         MessageHandler(
             select,
-            filters=command(BotCommands.SelectCommand, case_sensitive=True)
+            filters=regex(rf"^/{BotCommands.SelectCommand[1]}?(?:_\w+).*$")
             & CustomFilters.authorized,
         )
     )
@@ -302,6 +324,23 @@ def add_handlers():
             & CustomFilters.authorized,
         )
     )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            picture_add,
+            filters=command(BotCommands.AddImageCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            pictures,
+            filters=command(BotCommands.ImagesCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(pics_callback, filters=regex("^images"))
+    )
 
     TgClient.bot.add_handler(
         MessageHandler(
@@ -370,6 +409,32 @@ def add_handlers():
             filters=command(BotCommands.NzbSearchCommand, case_sensitive=True)
             & CustomFilters.authorized,
         )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            gen_pyro_string,
+            filters=command(BotCommands.GenPyroSessCommand, case_sensitive=True)
+            & CustomFilters.sudo,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            change_category,
+            filters=command(BotCommands.CategorySelectCommand) & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(confirm_category, filters=regex("^scat"))
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            drive_clean,
+            filters=command(BotCommands.GDCleanCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(confirm_drive_clean_cb, filters=regex("^gdccat"))
     )
     if Config.SET_COMMANDS:
         global BOT_COMMANDS
