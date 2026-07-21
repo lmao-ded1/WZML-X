@@ -7,9 +7,7 @@ DATABASE_URL = ""
 
 # OPTIONAL CONFIG
 DEFAULT_LANG = "en"
-TG_PROXY = (
-    {}
-)  # {"scheme": ”socks5”, "hostname": ””, "port": 1234, "username": ”user”, "password": ”pass”}
+TG_PROXY = {}  # {"scheme": ”socks5”, "hostname": ””, "port": 1234, "username": ”user”, "password": ”pass”}
 USER_SESSION_STRING = ""
 CMD_SUFFIX = ""
 AUTHORIZED_CHATS = ""
@@ -26,7 +24,9 @@ USE_SERVICE_ACCOUNTS = False
 NAME_SWAP = ""
 FFMPEG_CMDS = {}
 UPLOAD_PATHS = {}
-WEB_ACCESS_PASSWORD=""  # Secret for deriving proxy passwords. Logs derived passwords at startup.
+WEB_ACCESS_PASSWORD = (
+    ""  # Secret for deriving proxy passwords. Logs derived passwords at startup.
+)
 
 # Hyper Tg Downloader
 HELPER_TOKENS = ""
@@ -90,24 +90,14 @@ HYDRA_IP = ""
 HYDRA_API_KEY = ""
 
 # Media Search
-IMDB_TEMPLATE = """<b>Title: </b> {title} [{year}]
-<b>Also Known As:</b> {aka}
-<b>Rating ⭐️:</b> <i>{rating}</i>
-<b>Release Info: </b> <a href="{url_releaseinfo}">{release_date}</a>
-<b>Genre: </b>{genres}
-<b>IMDb URL:</b> {url}
-<b>Language: </b>{languages}
-<b>Country of Origin : </b> {countries}
-
-<b>Story Line: </b><code>{plot}</code>
-
-<a href="{url_cast}">Read More ...</a>"""
+# Optional: Set IMDB_TEMPLATE to use old HTML format instead of Rich Messages.
+# If empty (default), IMDb uses Rich Messages with tables and collapsible sections.
+IMDB_TEMPLATE = ""
 
 # Task Tools
 FORCE_SUB_IDS = ""
 MEDIA_STORE = True
 DELETE_LINKS = False
-CLEAN_LOG_MSG = False
 
 # Limiters
 BOT_MAX_TASKS = 0
@@ -115,6 +105,9 @@ USER_MAX_TASKS = 0
 USER_TIME_INTERVAL = 0
 VERIFY_TIMEOUT = 0
 LOGIN_PASS = ""
+
+# Crash Reporting
+ENABLE_TELEMETRY = True  # Send crash reports to remote worker
 
 # Bot Settings
 BOT_PM = False

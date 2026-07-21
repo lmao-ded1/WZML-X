@@ -12,7 +12,7 @@ from ..modules import *
 from .tg_client import TgClient
 
 
-def add_handlers():
+async def add_handlers():
     TgClient.bot.add_handler(
         MessageHandler(
             authorize,
@@ -58,9 +58,7 @@ def add_handlers():
     TgClient.bot.add_handler(
         MessageHandler(
             black_listed,
-            filters=regex(r"^/")
-            & CustomFilters.authorized
-            & CustomFilters.blacklisted,
+            filters=regex(r"^/") & CustomFilters.authorized & CustomFilters.blacklisted,
         )
     )
     TgClient.bot.add_handler(
@@ -420,7 +418,8 @@ def add_handlers():
     TgClient.bot.add_handler(
         MessageHandler(
             change_category,
-            filters=command(BotCommands.CategorySelectCommand) & CustomFilters.authorized,
+            filters=command(BotCommands.CategorySelectCommand)
+            & CustomFilters.authorized,
         )
     )
     TgClient.bot.add_handler(
@@ -475,7 +474,7 @@ def add_handlers():
                 BOT_COMMANDS, "Login", "[password] Login to Bot", 14
             )
 
-        TgClient.bot.set_bot_commands(
+        await TgClient.bot.set_bot_commands(
             [
                 BotCommand(
                     cmds[0] if isinstance(cmds, list) else cmds,

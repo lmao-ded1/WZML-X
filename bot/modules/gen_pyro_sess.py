@@ -2,7 +2,8 @@ from asyncio import Event, wait_for, TimeoutError as AsyncTimeout
 from os.path import exists as path_exists
 
 from aiofiles.os import remove as aioremove
-from pyrogram import Client
+from pyrogram import Client, __version__ as wzgram_version
+from ..version import get_version
 from pyrogram.enums import ChatType
 from pyrogram.filters import create, user, text, private
 from pyrogram.handlers import CallbackQueryHandler, MessageHandler
@@ -20,7 +21,11 @@ from ..core.config_manager import Config
 from ..helper.ext_utils.bot_utils import new_task
 from ..helper.ext_utils.status_utils import get_readable_time
 from ..helper.telegram_helper.button_build import ButtonMaker
-from ..helper.telegram_helper.message_utils import send_message, edit_message, delete_message
+from ..helper.telegram_helper.message_utils import (
+    send_message,
+    edit_message,
+    delete_message,
+)
 
 _STOP = "gensess_stop"
 _TIMEOUT = 120
@@ -29,6 +34,7 @@ _TIMEOUT = 120
 def _stop_filter(uid):
     async def _check(_, __, update):
         return update.data == _STOP and update.from_user.id == uid
+
     return create(_check)
 
 
@@ -47,7 +53,7 @@ def _stop_btns():
 
 def _header(user_name):
     return (
-        "⌬ <u><i><b>Pyrogram String Session Generator</b></i></u>\n│\n"
+        "⌬ <u><i><b>WZGram String Session Generator</b></i></u>\n│\n"
         f"│ <b>User</b> → <b>{user_name}</b>!"
     )
 
@@ -65,11 +71,17 @@ def _collected(api_id=None, api_hash=None, phone=None):
 
 
 def _stop_msg(h, c):
-    return f"{h}\n┃\n" + (f"{c}\n┃\n┖ <b>Process Stopped.</b>" if c else "┖ <b>Process Stopped.</b>")
+    return f"{h}\n┃\n" + (
+        f"{c}\n┃\n┖ <b>Process Stopped.</b>" if c else "┖ <b>Process Stopped.</b>"
+    )
 
 
 def _timeout_msg(h, c):
-    return f"{h}\n┃\n" + (f"{c}\n┃\n┃ <b>Timed Out!</b>\n┖ <i>Process Stopped.</i>" if c else "┃ <b>Timed Out!</b>\n┖ <i>Process Stopped.</i>")
+    return f"{h}\n┃\n" + (
+        f"{c}\n┃\n┃ <b>Timed Out!</b>\n┖ <i>Process Stopped.</i>"
+        if c
+        else "┃ <b>Timed Out!</b>\n┖ <i>Process Stopped.</i>"
+    )
 
 
 def _error_msg(h, c, err):
@@ -154,7 +166,9 @@ async def gen_pyro_string(_, message):
         try:
             api_id = int(api_id)
         except ValueError:
-            return await edit_message(sess_msg, _error_msg(h, "", "<i><code>APP_ID</code> is Invalid.</i>"))
+            return await edit_message(
+                sess_msg, _error_msg(h, "", "<i><code>APP_ID</code> is Invalid.</i>")
+            )
 
         c = _collected(api_id=api_id)
         await edit_message(
@@ -171,7 +185,9 @@ async def gen_pyro_string(_, message):
         if await _stop_or_timeout(api_hash, sess_msg, h, c):
             return
         if len(api_hash) <= 30:
-            return await edit_message(sess_msg, _error_msg(h, c, "<i><code>API_HASH</code> is Invalid.</i>"))
+            return await edit_message(
+                sess_msg, _error_msg(h, c, "<i><code>API_HASH</code> is Invalid.</i>")
+            )
 
         c = _collected(api_id=api_id, api_hash=api_hash)
     else:
@@ -217,12 +233,18 @@ async def gen_pyro_string(_, message):
     try:
         pyro_client = Client(
             f"WZML-X-{user_id}",
+            in_memory=True,
             api_id=api_id,
             api_hash=api_hash,
             workdir="/usr/src/app",
+            app_version=f"@WZML_X {get_version()}",
+            device_model="@WZML_X Bot V3",
+            system_version="@WZML_X WzPyro Server",
         )
     except Exception as e:
-        return await edit_message(sess_msg, _error_msg(h, c, f"<b>Client Error:</b> <i>{e}</i>"))
+        return await edit_message(
+            sess_msg, _error_msg(h, c, f"<b>Client Error:</b> <i>{e}</i>")
+        )
 
     try:
         await pyro_client.connect()
@@ -234,13 +256,29 @@ async def gen_pyro_string(_, message):
         user_code = await pyro_client.send_code(phone_no)
     except FloodWait as e:
         await _safe_disconnect(pyro_client)
-        return await edit_message(sess_msg, _error_msg(h, c, f"<b>FloodWait:</b> <i>Retry after {get_readable_time(e.value)}.</i>"))
+        return await edit_message(
+            sess_msg,
+            _error_msg(
+                h,
+                c,
+                f"<b>FloodWait:</b> <i>Retry after {get_readable_time(e.value)}.</i>",
+            ),
+        )
     except ApiIdInvalid:
         await _safe_disconnect(pyro_client)
-        return await edit_message(sess_msg, _error_msg(h, c, "<i><code>API_ID</code> and <code>API_HASH</code> are Invalid.</i>"))
+        return await edit_message(
+            sess_msg,
+            _error_msg(
+                h,
+                c,
+                "<i><code>API_ID</code> and <code>API_HASH</code> are Invalid.</i>",
+            ),
+        )
     except PhoneNumberInvalid:
         await _safe_disconnect(pyro_client)
-        return await edit_message(sess_msg, _error_msg(h, c, "<i>Phone Number is Invalid.</i>"))
+        return await edit_message(
+            sess_msg, _error_msg(h, c, "<i>Phone Number is Invalid.</i>")
+        )
 
     await edit_message(
         sess_msg,
@@ -288,17 +326,22 @@ async def gen_pyro_string(_, message):
             await pyro_client.check_password(password.strip())
         except Exception as e:
             await _safe_disconnect(pyro_client)
-            return await edit_message(sess_msg, _error_msg(h, c, f"<b>Password Error:</b> <i>{e}</i>"))
+            return await edit_message(
+                sess_msg, _error_msg(h, c, f"<b>Password Error:</b> <i>{e}</i>")
+            )
     except Exception as e:
         await _safe_disconnect(pyro_client)
-        return await edit_message(sess_msg, _error_msg(h, c, f"<b>Sign In Error:</b> <i>{e}</i>"))
+        return await edit_message(
+            sess_msg, _error_msg(h, c, f"<b>Sign In Error:</b> <i>{e}</i>")
+        )
 
     try:
         session_string = await pyro_client.export_session_string()
         await pyro_client.send_message(
             "me",
-            f"⌬ <b><u>Pyrogram Session Generated</u></b>\n\n"
+            f"⌬ <b><u>WZGram Session Generated</u></b>\n\n"
             f"<code>{session_string}</code>\n\n"
+            f"<b>WZGram v{wzgram_version} | WZML-X {get_version()}</b>\n"
             f"<b>Via <a href='https://github.com/SilentDemonSD/WZML-X'>WZML-X</a> [ @WZML_X ]</b>",
             disable_web_page_preview=True,
         )
@@ -306,13 +349,15 @@ async def gen_pyro_string(_, message):
         await edit_message(
             sess_msg,
             f"{h}\n┃\n{c}\n┃\n"
-            "┠  <b>String Session Generated Successfully!</b>\n"
+            "┠  <b>WZGram Session Generated Successfully!</b>\n"
             "┃\n"
             "┖ <i>Check your <b>Saved Messages</b>.</i>",
         )
     except Exception as e:
         await _safe_disconnect(pyro_client)
-        return await edit_message(sess_msg, _error_msg(h, c, f"<b>Export Error:</b> <i>{e}</i>"))
+        return await edit_message(
+            sess_msg, _error_msg(h, c, f"<b>Export Error:</b> <i>{e}</i>")
+        )
 
     for ext in ("session", "session-journal"):
         path = f"WZML-X-{user_id}.{ext}"

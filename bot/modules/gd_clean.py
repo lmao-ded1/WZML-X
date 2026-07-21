@@ -39,15 +39,21 @@ class GDClean(TaskListener):
         obj = GoogleDriveClean(self)
         if gc_name:
             cat_name = gc_name.replace("_", " ")
-            default_id = user_data.get(self.user_id, {}).get("GDRIVE_ID") or Config.GDRIVE_ID
-            default_index = user_data.get(self.user_id, {}).get("INDEX_URL") or Config.INDEX_URL
+            default_id = (
+                user_data.get(self.user_id, {}).get("GDRIVE_ID") or Config.GDRIVE_ID
+            )
+            default_index = (
+                user_data.get(self.user_id, {}).get("INDEX_URL") or Config.INDEX_URL
+            )
             merged = {
                 "Default": {"drive_id": default_id, "index_link": default_index},
                 **fetch_drive_cat(self.user_id),
                 **categories_dict,
             }
             if cat_name not in merged:
-                return await send_message(self.message, f"Category '{cat_name}' not found")
+                return await send_message(
+                    self.message, f"Category '{cat_name}' not found"
+                )
             drive_id = merged[cat_name].get("drive_id")
             if not drive_id:
                 return await send_message(
@@ -57,12 +63,12 @@ class GDClean(TaskListener):
         elif link:
             await obj.start(link=link)
         else:
-            drive_id, is_cancelled = await open_drive_clean(self.message)
+            drive_id, is_cancelled, cat_name = await open_drive_clean(self.message)
             if is_cancelled:
                 return
             if not drive_id:
                 return await send_message(self.message, "No drive ID selected")
-            await obj.start(drive_id=drive_id)
+            await obj.start(drive_id=drive_id, cat_name=cat_name)
 
 
 @new_task
@@ -83,23 +89,35 @@ async def confirm_drive_clean_cb(_, query):
     if cat_name == "ccancel":
         bot_cache[msg_id][1] = True
         return
+    if cat_name == "cstart":
+        if bot_cache[msg_id][0]:
+            bot_cache[msg_id][2] = True
+        return
     await query.answer()
     merged = {
         "Default": {
             "drive_id": user_data.get(user_id, {}).get("GDRIVE_ID") or Config.GDRIVE_ID,
-            "index_link": user_data.get(user_id, {}).get("INDEX_URL") or Config.INDEX_URL,
+            "index_link": user_data.get(user_id, {}).get("INDEX_URL")
+            or Config.INDEX_URL,
         },
         **fetch_drive_cat(user_id),
         **categories_dict,
     }
-    bot_cache[msg_id][0] = merged.get(cat_name, {}).get("drive_id")
-    bot_cache[msg_id][2] = True
+    selected_id = merged.get(cat_name, {}).get("drive_id")
+    bot_cache[msg_id][0] = selected_id
+    bot_cache[msg_id][4] = cat_name
     buttons = ButtonMaker()
     for name in merged:
         selected = cat_name == name
         buttons.data_button(
-            f'{"✓️" if selected else ""} {name}',
+            f"{'✓️' if selected else ''} {name}",
             f"gdccat {user_id} {msg_id} {name.replace(' ', '_')}",
+        )
+    if selected_id:
+        buttons.data_button(
+            "Start Cleaning",
+            f"gdccat {user_id} {msg_id} cstart",
+            style=ButtonStyle.DANGER,
         )
     buttons.data_button(
         "Cancel",

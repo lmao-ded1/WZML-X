@@ -5,11 +5,11 @@ from json import loads
 from lxml.etree import HTML
 from os import path as ospath
 from re import findall, match, search
-from requests import Session, post, get
-from requests.adapters import HTTPAdapter
+from niquests import Session, post, get
+from niquests.adapters import HTTPAdapter
 from time import sleep, time
 from urllib.parse import parse_qs, urlparse
-from urllib3.util.retry import Retry
+from niquests.packages.urllib3.util.retry import Retry
 from uuid import uuid4
 from base64 import b64decode, b64encode
 from curl_cffi import Session as CurlSession
@@ -381,25 +381,25 @@ def buzzheavier(url):
     if not match(pattern, url):
         return url
 
-    def _bhscraper(session , url):
+    def _bhscraper(session, url):
         if "/download" not in url:
             url += "/download"
         url = url.strip()
         try:
-            response = session.get(url , allow_redirects=False)
-            d_url = response.headers.get("location","").strip()
+            response = session.get(url, allow_redirects=False)
+            d_url = response.headers.get("location", "").strip()
             if not d_url:
                 return
             return d_url
         except Exception as e:
             raise DirectDownloadLinkException(f"ERROR: {str(e)}") from e
 
-    with CurlSession(impersonate = "chrome") as session:
+    with CurlSession(impersonate="chrome") as session:
         response = session.get(url)
         tree = HTML(response.text)
         if link := tree.xpath("//a[contains(@hx-get, 'download')]"):
             hx_get = link[0].attrib.get("hx-get", "").strip()
-            return _bhscraper(session , f"https://buzzheavier.com{hx_get}")
+            return _bhscraper(session, f"https://buzzheavier.com{hx_get}")
         elif folders := tree.xpath("//tbody[@id='tbody']/tr"):
             details = {"contents": [], "title": "", "total_size": 0}
             for data in folders:
@@ -409,7 +409,9 @@ def buzzheavier(url):
                     size = data.xpath(".//td[@class='text-center']/text()")[0].strip()
                     url = buzzheavier(f"https://buzzheavier.com{_id}")
                     if not url:
-                        raise DirectDownloadLinkException("ERROR: No download link found")
+                        raise DirectDownloadLinkException(
+                            "ERROR: No download link found"
+                        )
                     item = {
                         "path": "",
                         "filename": filename,
@@ -424,6 +426,7 @@ def buzzheavier(url):
             return details
         else:
             raise DirectDownloadLinkException("ERROR: No download link found")
+
 
 def fuckingfast_dl(url):
     """
@@ -555,7 +558,7 @@ def mediafile(url):
         postid = postvalue[1].replace("(", "").replace(")", "")
         response = post(
             "https://mediafile.cc/account/ajax/file_details",
-            data={"u": postid},
+            data={"u": postid, "p": "true"},
             headers={"X-Requested-With": "XMLHttpRequest"},
         )
         html = response.json()["html"]
@@ -721,7 +724,7 @@ def onedrive(link):
         data = f"--{boundary}\r\nContent-Disposition: form-data;name=data\r\nPrefer: Migration=EnableRedirect;FailOnMigratedFiles\r\nX-HTTP-Method-Override: GET\r\nContent-Type: application/json\r\n\r\n--{boundary}--"
         try:
             resp = session.get(
-                f'https://api.onedrive.com/v1.0/drives/{folder_id.split("!", 1)[0]}/items/{folder_id}?$select=id,@content.downloadUrl&ump=1&authKey={authkey}',
+                f"https://api.onedrive.com/v1.0/drives/{folder_id.split('!', 1)[0]}/items/{folder_id}?$select=id,@content.downloadUrl&ump=1&authKey={authkey}",
                 headers=headers,
                 data=data,
             ).json()
@@ -906,7 +909,6 @@ def uploadee(url):
 
 
 def terabox(url):
-
     if "/file/" in url:
         return url
 
@@ -1269,8 +1271,8 @@ def filepress(url):
         raise DirectDownloadLinkException(f"ERROR: {e.__class__.__name__}") from e
 
     if "data" not in res:
-        raise DirectDownloadLinkException(f'ERROR: {res["statusText"]}')
-    return f'https://drive.google.com/uc?id={res["data"]}&export=download'
+        raise DirectDownloadLinkException(f"ERROR: {res['statusText']}")
+    return f"https://drive.google.com/uc?id={res['data']}&export=download"
 
 
 def sharer_scraper(url):
@@ -1373,7 +1375,7 @@ def shrdsk(url):
     with create_scraper() as session:
         try:
             _json = session.get(
-                f'https://us-central1-affiliate2apk.cloudfunctions.net/get_data?shortid={url.split("/")[-1]}',
+                f"https://us-central1-affiliate2apk.cloudfunctions.net/get_data?shortid={url.split('/')[-1]}",
             ).json()
         except Exception as e:
             raise DirectDownloadLinkException(f"ERROR: {e.__class__.__name__}") from e
@@ -2334,7 +2336,7 @@ def swisstransfer(link):
     for file in files:
         file_uuid = file["UUID"]
         file_name = file["fileName"]
-        #file_size = file["fileSizeInBytes"]
+        # file_size = file["fileSizeInBytes"]
 
         token = gettoken(password, container_uuid, file_uuid)
         if not token:

@@ -1,5 +1,5 @@
 from json import loads as jloads, JSONDecodeError
-from httpx import AsyncClient
+from niquests import AsyncSession
 from pyrogram.enums import ButtonStyle
 from apscheduler.triggers.interval import IntervalTrigger
 from asyncio import Lock, sleep
@@ -15,7 +15,12 @@ from re import compile, I
 from .. import scheduler, rss_dict, LOGGER
 from ..core.config_manager import Config
 from ..core.tg_client import TgClient
-from ..helper.ext_utils.bot_utils import new_task, arg_parser, get_size_bytes, resolve_command
+from ..helper.ext_utils.bot_utils import (
+    new_task,
+    arg_parser,
+    get_size_bytes,
+    resolve_command,
+)
 from ..helper.ext_utils.status_utils import get_readable_file_size
 from ..helper.ext_utils.db_handler import database
 from ..helper.ext_utils.exceptions import RssShutdownException
@@ -42,12 +47,23 @@ headers = {
 
 
 def _json_to_rss(data, feed_title="TorAPI"):
-    items = data if isinstance(data, list) else data.get("data", []) if isinstance(data, dict) else []
+    items = (
+        data
+        if isinstance(data, list)
+        else data.get("data", [])
+        if isinstance(data, dict)
+        else []
+    )
     if not items:
         return None
     entries = ""
     for item in items:
-        title = item.get("Name", "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        title = (
+            item.get("Name", "")
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
         url = item.get("Url", "")
         torrent = item.get("Torrent", "")
         size = item.get("Size", "")
@@ -168,7 +184,9 @@ async def update_rss_menu(query):
 @new_task
 async def get_rss_menu(_, message):
     if Config.DISABLE_RSS:
-        await send_message(message, "RSS monitoring is currently disabled by the Bot Owner.")
+        await send_message(
+            message, "RSS monitoring is currently disabled by the Bot Owner."
+        )
         return
     msg, button = await rss_menu(message)
     await send_message(message, msg, button)
@@ -232,10 +250,8 @@ async def rss_sub(_, message, pre_event):
             cmd = None
             stv = False
         try:
-            async with AsyncClient(
-                headers=headers, follow_redirects=True, timeout=60
-            ) as client:
-                res = await client.get(feed_link)
+            async with AsyncSession(headers=headers, timeout=60) as client:
+                res = await client.get(feed_link, allow_redirects=True)
             html = res.text
             rss_d = _parse_feed(html)
             last_link = ""
@@ -449,10 +465,8 @@ async def rss_get(_, message, pre_event):
                 msg = await send_message(
                     message, f"Getting the last <b>{count}</b> item(s) from {title}"
                 )
-                async with AsyncClient(
-                    headers=headers, follow_redirects=True, timeout=60
-                ) as client:
-                    res = await client.get(data["link"])
+                async with AsyncSession(headers=headers, timeout=60) as client:
+                    res = await client.get(data["link"], allow_redirects=True)
                 html = res.text
                 rss_d = _parse_feed(html)
                 item_info = ""
@@ -472,17 +486,17 @@ async def rss_get(_, message, pre_event):
                 else:
                     await edit_message(msg, item_info)
             except IndexError as e:
-                LOGGER.error(str(e))
+                LOGGER.error(f"RSS get: {e}")
                 await edit_message(
                     msg, "Parse depth exceeded. Try again with a lower value."
                 )
             except Exception as e:
-                LOGGER.error(str(e))
-                await edit_message(msg, str(e))
+                LOGGER.error(f"RSS get: {e}")
+                await edit_message(msg, str(e) or "Unknown error occurred")
         else:
             await send_message(message, "Enter a valid title. Title not found!")
     except Exception as e:
-        LOGGER.error(str(e))
+        LOGGER.error(f"RSS get: {e}")
         await send_message(message, f"Enter a valid value!. {e}")
     await update_rss_menu(pre_event)
 
@@ -806,19 +820,18 @@ async def rss_monitor():
     elif chat.lstrip("-").isdigit():
         rss_chat_id = int(chat)
     for user, items in list(rss_dict.items()):
-        for title, data in items.items():
+        for title, data in list(items.items()):
             try:
                 if data["paused"]:
                     continue
                 tries = 0
                 while True:
                     try:
-                        async with AsyncClient(
+                        async with AsyncSession(
                             headers=headers,
-                            follow_redirects=True,
                             timeout=60,
                         ) as client:
-                            res = await client.get(data["link"])
+                            res = await client.get(data["link"], allow_redirects=True)
                         html = res.text
                         break
                     except Exception:
@@ -936,7 +949,9 @@ async def rss_monitor():
                 LOGGER.info(ex)
                 break
             except Exception as e:
-                LOGGER.error(f"{e} - Feed Name: {title} - Feed Link: {data['link']}")
+                LOGGER.error(
+                    f"RSS monitor: {e} - Feed Name: {title} - Feed Link: {data['link']}"
+                )
                 continue
     if all_paused:
         scheduler.pause()

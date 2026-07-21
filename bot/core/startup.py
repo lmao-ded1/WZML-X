@@ -1,4 +1,4 @@
-from asyncio import create_subprocess_exec, create_subprocess_shell, gather, sleep
+from asyncio import create_subprocess_shell, gather, sleep
 from importlib import import_module
 from os import environ, path as ospath, getenv
 
@@ -9,6 +9,7 @@ from aioshutil import rmtree
 
 from .. import (
     LOGGER,
+    bot_loop,
     aria2_options,
     auth_chats,
     categories_dict,
@@ -26,7 +27,7 @@ from .. import (
     sabnzbd_client,
     sudo_users,
 )
-from ..helper.ext_utils.bot_utils import derive_service_password
+from ..helper.ext_utils.bot_utils import cmd_exec, derive_service_password
 from ..helper.ext_utils.db_handler import database
 from .config_manager import Config, BinConfig
 from .tg_client import TgClient, db_partition_id
@@ -56,13 +57,13 @@ async def update_qb_options():
             if k.startswith("rss"):
                 del qbit_options[k]
         qbit_options["web_ui_password"] = pwd
-        await TorrentManager.qbittorrent.app.set_preferences(
-            {"web_ui_password": pwd}
-        )
+        await TorrentManager.qbittorrent.app.set_preferences({"web_ui_password": pwd})
+        await TorrentManager._auth_qbit()
     else:
         if qbit_options.get("web_ui_password") in ("admin", "admin1", ""):
             qbit_options["web_ui_password"] = pwd
         await TorrentManager.qbittorrent.app.set_preferences(qbit_options)
+        await TorrentManager._auth_qbit()
 
 
 async def update_aria2_options():
@@ -90,9 +91,7 @@ async def update_nzb_options():
                     f"Failed to get SABnzbd options after {retries} retries: {e}"
                 )
                 return
-            LOGGER.warning(
-                f"SABnzbd not ready, retrying ({i + 1}/{retries}): {e}"
-            )
+            LOGGER.warning(f"SABnzbd not ready, retrying ({i + 1}/{retries}): {e}")
             await sleep(2)
 
 
@@ -136,15 +135,23 @@ async def load_settings():
             database.db.settings.config.find_one(deploy_filter, {"_id": 0}),
             database.db.settings.files.find_one(deploy_filter, {"_id": 0}),
             database.db.settings.aria2c.find_one(deploy_filter, {"_id": 0}),
-            database.db.settings.qbittorrent.find_one(
-                deploy_filter, {"_id": 0}
-            ) if not Config.DISABLE_TORRENTS else sleep(0),
+            database.db.settings.qbittorrent.find_one(deploy_filter, {"_id": 0})
+            if not Config.DISABLE_TORRENTS
+            else sleep(0),
             database.db.settings.nzb.find_one(deploy_filter, {"_id": 0}),
             database.db.users[PART].find_one(),
             database.db.rss[PART].find_one(),
         )
 
-        config_dict, pf_dict, a2c_options, qbit_opt, nzb_opt, user_exists, rss_exists = results
+        (
+            config_dict,
+            pf_dict,
+            a2c_options,
+            qbit_opt,
+            nzb_opt,
+            user_exists,
+            rss_exists,
+        ) = results
 
         if old_config is None:
             await database.db.settings.deployConfig.replace_one(
@@ -155,7 +162,9 @@ async def load_settings():
                 if v is not None:
                     config_dict.setdefault(k, v)
         elif old_config != config_file:
-            LOGGER.info("Updating.. Deploy Config changed, merging new config.py values")
+            LOGGER.info(
+                "Updating.. Deploy Config changed, merging new config.py values"
+            )
             config_dict = config_dict or {}
             for k, v in config_file.items():
                 if k not in old_config or old_config.get(k) != v:
@@ -307,21 +316,6 @@ async def update_variables():
             "index_link": Config.INDEX_URL,
         }
 
-    if not Config.IMDB_TEMPLATE:
-        Config.IMDB_TEMPLATE = """
-<b>Title: </b> {title} [{year}]
-<b>Also Known As:</b> {aka}
-<b>Rating ⭐️:</b> <i>{rating}</i>
-<b>Release Info: </b> <a href="{url_releaseinfo}">{release_date}</a>
-<b>Genre: </b>{genres}
-<b>IMDb URL:</b> {url}
-<b>Language: </b>{languages}
-<b>Country of Origin : </b> {countries}
-
-<b>Story Line: </b><code>{plot}</code>
-
-<a href="{url_cast}">Read More ...</a>"""
-
     if await aiopath.exists("list_drives.txt"):
         async with aiopen("list_drives.txt", "r+") as f:
             lines = await f.readlines()
@@ -370,29 +364,21 @@ async def load_configurations():
 
     from bot import service_cores
 
-    cmd = f"chmod 600 .netrc && cp .netrc /root/.netrc && chmod +x setpkgs.sh && ./setpkgs.sh {BinConfig.ARIA2_NAME} \"{service_cores}\" {Config.CPU_LIMIT}"
+    cmd = f'chmod 600 .netrc && cp .netrc /root/.netrc && chmod +x setpkgs.sh && ./setpkgs.sh {BinConfig.ARIA2_NAME} "{service_cores}" {Config.CPU_LIMIT}'
     if not Config.DISABLE_NZB:
         cmd += f" {BinConfig.SABNZBD_NAME}"
-    await (
-        await create_subprocess_shell(cmd)
-    ).wait()
+    await (await create_subprocess_shell(cmd)).wait()
 
     if await aiopath.exists("cfg.zip"):
         if await aiopath.exists("/JDownloader/cfg"):
             await rmtree("/JDownloader/cfg", ignore_errors=True)
-        await (
-            await create_subprocess_exec("7z", "x", "cfg.zip", "-o/JDownloader")
-        ).wait()
+        await cmd_exec(["7z", "x", "cfg.zip", "-o/JDownloader"])
 
     if await aiopath.exists("accounts.zip"):
         if await aiopath.exists("accounts"):
-            await rmtree("accounts")
-        await (
-            await create_subprocess_exec(
-                "7z", "x", "-o.", "-aoa", "accounts.zip", "accounts/*.json"
-            )
-        ).wait()
-        await (await create_subprocess_exec("chmod", "-R", "777", "accounts")).wait()
+            await rmtree("accounts", ignore_errors=True)
+        await cmd_exec(["7z", "x", "-o.", "-aoa", "accounts.zip", "accounts/*.json"])
+        await cmd_exec(["chmod", "-R", "777", "accounts"])
         await remove("accounts.zip")
 
     if not await aiopath.exists("accounts"):
@@ -407,19 +393,23 @@ async def load_configurations():
             await TorrentManager.qbittorrent.app.set_preferences(qbit_options)
         except Exception as e:
             LOGGER.error(f"Failed to configure qBittorrent: {e}")
+        await TorrentManager._auth_qbit()
 
     PORT = getenv("PORT", "") or "8080"
     if PORT:
         access_pwd = getenv("WEB_ACCESS_PASSWORD", "") or Config.WEB_ACCESS_PASSWORD
         if not access_pwd:
             from secrets import token_bytes
+
             access_pwd = token_bytes(32).hex()
             Config.WEB_ACCESS_PASSWORD = access_pwd
         env = f"WEB_ACCESS_PASSWORD={access_pwd} "
-        await create_subprocess_shell(
-            f"{env}gunicorn -k uvicorn.workers.UvicornWorker -w 1 web.wserver:app --bind 0.0.0.0:{PORT}"
-        )
-        await create_subprocess_shell("python3 cron_boot.py")
+        bot_loop.create_task(cmd_exec(
+            f"{env}gunicorn -k uvicorn.workers.UvicornWorker -w 1 web.wserver:app --bind 0.0.0.0:{PORT}",
+            shell=True,
+        ))
+        bot_loop.create_task(cmd_exec("python3 cron_boot.py", shell=True))
 
     from ..helper.ext_utils.tunnel_monitor import apply_tunnel_url_once
+
     await apply_tunnel_url_once()

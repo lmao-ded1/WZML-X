@@ -3,6 +3,7 @@ from importlib import import_module
 from os import getenv
 from wz_bin import bin_name
 
+
 class Config:
     AS_DOCUMENT = False
     AUTHORIZED_CHATS = ""
@@ -41,6 +42,7 @@ class Config:
     FORCE_SUB_IDS = ""
     GOFILE_API = ""
     GOFILE_FOLDER_ID = ""
+    GOFILE_AUTO_CREATE_FOLDER = False
     PIXELDRAIN_KEY = ""
     PROTECTED_API = ""
     BUZZHEAVIER_API = ""
@@ -84,7 +86,6 @@ class Config:
     LEECH_DUMP_CHAT = ""
     LINKS_LOG_ID = ""
     MIRROR_LOG_ID = ""
-    CLEAN_LOG_MSG = False
     LEECH_PREFIX = ""
     LEECH_CAPTION = ""
     LEECH_SUFFIX = ""
@@ -142,6 +143,7 @@ class Config:
     USER_SESSION_STRING = ""
     TRANSMISSION_MODE = "both"
     USE_SERVICE_ACCOUNTS = False
+    ENABLE_TELEMETRY = True
     WEB_ACCESS_PASSWORD = ""
     WEB_PINCODE = True
     YT_DLP_OPTIONS = {}
